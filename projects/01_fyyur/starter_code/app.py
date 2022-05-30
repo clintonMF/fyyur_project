@@ -13,7 +13,7 @@ from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
-from models import *
+from models import db, Venue,Artist,Show
 import collections
 collections.Callable = collections.abc.Callable
 #----------------------------------------------------------------------------#
@@ -24,6 +24,7 @@ app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
 db = SQLAlchemy(app)
+db.init_app(app)
 migrate = Migrate(app, db)
 
 # TODO: connect to a local postgresql database
@@ -98,9 +99,7 @@ def search_venues():
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
   
   search_term = request.form.get('search_term')
-  print(search_term)
   search_for = f"%{search_term}%"
-  print(search_for)
   venues = Venue.query.filter(Venue.name.ilike(search_for)).all()
   print(venues)
   data = []
@@ -130,13 +129,17 @@ def show_venue(venue_id):
   print(venue_id)
   venue = Venue.query.get(venue_id)
   def convert(string):
+    """this function is used to convert elements of a string into a list"""
     li = string.split(",")
     return li
   past_shows = []
   upcoming_shows = []
   p_shows = Show.query.filter(Show.venue_id==venue_id).filter(
           Show.start_time < datetime.utcnow()).all()
+  # the above line of code is used to get all past shows
   for p_show in p_shows:
+    # this for loop is used to structure the data from
+    # the individual past shows
     artist_id = p_show.artist_id
     artist_past = Artist.query.get(artist_id)
     past_show = {
@@ -149,7 +152,9 @@ def show_venue(venue_id):
       
   u_shows = Show.query.filter(Show.venue_id==venue_id).filter(
           Show.start_time > datetime.utcnow()).all()
+  # the line of code above is used to get all the upcoming shows
   for u_show in u_shows:
+    # this for loop is used to structure the data from the individual past shows
     artist_id = u_show.artist_id
     artist_up = Artist.query.get(artist_id)
     upcoming_show = {
@@ -176,7 +181,7 @@ def show_venue(venue_id):
     "past_shows": past_shows,
     "upcoming_shows": upcoming_shows,
     "past_shows_count": Show.query.filter(Show.venue_id==venue.id).filter(
-          Show.start_time > datetime.utcnow()).count(),
+          Show.start_time < datetime.utcnow()).count(),
     "upcoming_shows_count": Show.query.filter(Show.venue_id==venue.id).filter(
           Show.start_time > datetime.utcnow()).count(),
     }
@@ -193,6 +198,7 @@ def create_venue_form():
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
+  # this function enable the creation of new venues
   form=VenueForm(request.form)
   try:
     if form.validate():
@@ -278,15 +284,16 @@ def search_artists():
   count = 0
   data = []
   for artist in artists:
-    upcoming_shows = Show.query.join(Artist).filter(
-      artist.id==artist.id).filter(Show.start_time > datetime.utcnow())
+    upcoming_shows = Show.query.filter(Show.artist_id==artist.id).filter(
+      Show.start_time > datetime.utcnow())
     each_data = {
       "id": artist.id,
       "name": artist.name,
       "num_upcoming_shows": upcoming_shows.count()
     }
     data.append(each_data)
-    count += 1
+    count += 1 # this counts the number of times 
+    # the loop is ran which is equal to the number of artist gotten for the search
     
   response={
     "count": count,
